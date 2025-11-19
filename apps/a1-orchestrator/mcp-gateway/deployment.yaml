@@ -30,7 +30,13 @@ spec:
         runAsGroup: 65534
         fsGroup: 65534
       nodeSelector:
-        kubernetes.io/role: control-plane
+        node-role: orchestrator
+        host: A1
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "control"
+          effect: "NoSchedule"
       containers:
         - name: mcp-gateway
           image: ghcr.io/company/mcp-gateway:v1.2.3

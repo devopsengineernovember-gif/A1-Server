@@ -4,8 +4,8 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - service.yaml
-  - horizontalpodautoscaler.yaml
+  - hpa.yaml
+  - externalsecret.yaml
   - networkpolicy.yaml
   - poddisruptionbudget.yaml
   - servicemonitor.yaml
-  - externalsecret.yaml

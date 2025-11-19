@@ -209,6 +209,10 @@ spec:
                       values: ["mcp-config"]
                 topologyKey: kubernetes.io/hostname
       tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "control"
+          effect: "NoSchedule"
         - key: "node.kubernetes.io/not-ready"
           operator: "Exists"
           effect: "NoExecute"
