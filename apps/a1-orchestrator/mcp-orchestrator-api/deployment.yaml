@@ -44,7 +44,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: mcp-orchestrator-api
-        image: ghcr.io/your-org/mcp-orchestrator-api:v1.0.0
+        image: nginx:1.24-alpine
         ports:
         - name: http
           containerPort: 8080

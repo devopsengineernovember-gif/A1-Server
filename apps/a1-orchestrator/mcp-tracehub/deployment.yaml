@@ -44,7 +44,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: mcp-tracehub
-          image: "ghcr.io/devopsengineernovember-gif/mcp-tracehub:v1.0.0"
+          image: "nginx:1.24-alpine"
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

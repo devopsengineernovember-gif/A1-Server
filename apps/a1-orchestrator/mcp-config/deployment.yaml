@@ -45,7 +45,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: mcp-config
-          image: "ghcr.io/devopsengineernovember-gif/mcp-config:v1.0.0"
+          image: "nginx:1.24-alpine"
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
