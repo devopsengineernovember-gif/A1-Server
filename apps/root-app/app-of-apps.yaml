@@ -10,7 +10,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/devopsengineernovember-gif/k3s-ai-platform.git
+    repoURL: https://github.com/devopsengineernovember-gif/A1-Server.git
     targetRevision: main
     path: apps
   destination:
