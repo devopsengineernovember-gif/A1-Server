@@ -1,0 +1,108 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mcp-orchestrator-api
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-orchestrator-api
+    app.kubernetes.io/component: autoscaler
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mcp-orchestrator-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: mcp-orchestrator-api-keda
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-orchestrator-api
+    app.kubernetes.io/component: autoscaler
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  scaleTargetRef:
+    name: mcp-orchestrator-api
+  pollingInterval: 30
+  cooldownPeriod: 300
+  idleReplicaCount: 1
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  triggers:
+    # Custom metrics from Prometheus
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-server.monitoring.svc.cluster.local:80
+        metricName: http_requests_per_second
+        threshold: '30'
+        query: sum(rate(http_requests_total{service="mcp-orchestrator-api",namespace="a1-orchestrator"}[2m]))
+    
+    # P95 latency trigger
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-server.monitoring.svc.cluster.local:80
+        metricName: http_request_latency_p95
+        threshold: '500'  # 500ms
+        query: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service="mcp-orchestrator-api",namespace="a1-orchestrator"}[5m])) by (le)) * 1000
+    
+    # Queue depth (if applicable)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-server.monitoring.svc.cluster.local:80
+        metricName: request_queue_depth
+        threshold: '100'
+        query: sum(request_queue_size{service="mcp-orchestrator-api",namespace="a1-orchestrator"})
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mcp-orchestrator-api
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-orchestrator-api
+    app.kubernetes.io/component: availability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-orchestrator-api

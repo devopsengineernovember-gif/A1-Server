@@ -1,0 +1,66 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: a1-orchestrator
+
+resources:
+  - namespace.yaml
+  - networkpolicy.yaml
+  - external-secrets.yaml
+  - services/mcp-orchestrator-api
+  - services/mcp-gateway
+  - services/mcp-policy-proxy
+  - services/mcp-config
+  - services/mcp-tracehub
+  - monitoring/servicemonitor.yaml
+
+commonLabels:
+  app.kubernetes.io/managed-by: argocd
+  app.kubernetes.io/part-of: a1-orchestrator
+  platform: ai-agents
+  cluster: a1
+
+patches:
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: add
+        path: /spec/template/spec/securityContext
+        value:
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          fsGroup: 65534
+          seccompProfile:
+            type: RuntimeDefault
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext
+        value:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+
+images:
+  - name: mcp-orchestrator-api
+    newTag: v1.2.3
+  - name: mcp-gateway
+    newTag: v1.2.3
+  - name: mcp-policy-proxy
+    newTag: v1.2.3
+  - name: mcp-config
+    newTag: v1.2.3
+  - name: mcp-tracehub
+    newTag: v1.2.3
+
+configMapGenerator:
+  - name: shared-config
+    literals:
+      - cluster_id=a1
+      - environment=production
+      - log_level=info
+      - metrics_enabled=true
+      - tracing_enabled=true

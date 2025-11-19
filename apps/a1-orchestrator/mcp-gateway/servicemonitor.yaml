@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-gateway-monitor
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-gateway
+    component: gateway
+    environment: production
+    cluster: a1
+spec:
+  selector:
+    matchLabels:
+      app: mcp-gateway
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+    honorLabels: true
+  - port: http
+    interval: 30s
+    path: /health
+    honorLabels: true

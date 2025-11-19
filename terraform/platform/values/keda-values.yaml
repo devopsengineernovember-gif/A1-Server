@@ -1,0 +1,138 @@
+# KEDA configuration for A1 cluster
+image:
+  keda:
+    repository: ghcr.io/kedacore/keda
+    tag: 2.12.1
+  metricsApiServer:
+    repository: ghcr.io/kedacore/keda-metrics-apiserver
+    tag: 2.12.1
+  webhooks:
+    repository: ghcr.io/kedacore/keda-admission-webhooks
+    tag: 2.12.1
+
+replicaCount: 1
+
+nodeSelector:
+  node-role: control
+  host: A1
+
+tolerations:
+- key: dedicated
+  operator: Equal
+  value: control
+  effect: NoSchedule
+
+resources:
+  operator:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  metricServer:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  webhooks:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Metrics server configuration
+metricsServer:
+  nodeSelector:
+    node-role: control
+    host: A1
+  tolerations:
+  - key: dedicated
+    operator: Equal
+    value: control
+    effect: NoSchedule
+
+# Admission webhooks configuration
+admissionWebhooks:
+  nodeSelector:
+    node-role: control
+    host: A1
+  tolerations:
+  - key: dedicated
+    operator: Equal
+    value: control
+    effect: NoSchedule
+
+serviceMonitor:
+  enabled: true
+  namespace: keda
+  labels:
+    plane: control
+    host: A1
+    team: platform
+
+# Prometheus metrics
+prometheus:
+  metricServer:
+    enabled: true
+    port: 9022
+    portName: metrics
+    path: /metrics
+  operator:
+    enabled: true
+    port: 8080
+    portName: metrics
+    path: /metrics
+  webhooks:
+    enabled: true
+    port: 8080
+    portName: metrics
+    path: /metrics
+
+# Security settings
+securityContext:
+  operator:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  metricServer:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  webhooks:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+podSecurityContext:
+  operator:
+    fsGroup: 1001
+    runAsGroup: 1001
+    runAsUser: 1001
+  metricServer:
+    fsGroup: 1001
+    runAsGroup: 1001
+    runAsUser: 1001
+  webhooks:
+    fsGroup: 1001
+    runAsGroup: 1001
+    runAsUser: 1001

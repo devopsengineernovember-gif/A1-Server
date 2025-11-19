@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mcp-config-pdb
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-config
+    component: config
+    environment: production
+    cluster: a1
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mcp-config

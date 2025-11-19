@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mcp-policy-proxy-pdb
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-policy-proxy
+    component: policy
+    environment: production
+    cluster: a1
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mcp-policy-proxy

@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-orchestrator-api-monitor
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-orchestrator-api
+    component: api
+    environment: production
+    cluster: a1
+spec:
+  selector:
+    matchLabels:
+      app: mcp-orchestrator-api
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+    honorLabels: true
+  - port: http
+    interval: 30s
+    path: /health
+    honorLabels: true

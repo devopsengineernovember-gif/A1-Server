@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-tracehub-monitor
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-tracehub
+    component: tracing
+    environment: production
+    cluster: a1
+spec:
+  selector:
+    matchLabels:
+      app: mcp-tracehub
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+    honorLabels: true
+  - port: http
+    interval: 30s
+    path: /health
+    honorLabels: true
+  - port: jaeger-admin
+    interval: 30s
+    path: /metrics
+    honorLabels: true

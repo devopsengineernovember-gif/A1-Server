@@ -1,0 +1,303 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-orchestrator-api
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-orchestrator-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/version: v1.2.3
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-orchestrator-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcp-orchestrator-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: a1-orchestrator
+        app.kubernetes.io/version: v1.2.3
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+        config/checksum: placeholder  # Will be updated by CI/CD
+    spec:
+      serviceAccountName: mcp-orchestrator-api
+      automountServiceAccountToken: false
+      
+      # Security context for pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      
+      # Node selector for control plane
+      nodeSelector:
+        kubernetes.io/role: control-plane
+      
+      # Tolerations for control plane scheduling
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      
+      # Anti-affinity for high availability
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: mcp-orchestrator-api
+                topologyKey: kubernetes.io/hostname
+      
+      containers:
+        - name: mcp-orchestrator-api
+          image: ghcr.io/company/mcp-orchestrator-api:v1.2.3
+          imagePullPolicy: IfNotPresent
+          
+          # Security context for container
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            - name: grpc
+              containerPort: 9000
+              protocol: TCP
+          
+          env:
+            - name: PORT
+              value: "8080"
+            - name: METRICS_PORT
+              value: "9090"
+            - name: GRPC_PORT
+              value: "9000"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: shared-config
+                  key: log_level
+            - name: CLUSTER_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: shared-config
+                  key: cluster_id
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: shared-config
+                  key: environment
+            - name: TRACING_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: shared-config
+                  key: tracing_enabled
+            
+            # Database configuration
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-orchestrator-dev-secrets
+                  key: db_host
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-orchestrator-dev-secrets
+                  key: db_username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-orchestrator-dev-secrets
+                  key: db_password
+            
+            # API keys
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-orchestrator-dev-secrets
+                  key: openai_api_key
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-orchestrator-dev-secrets
+                  key: anthropic_api_key
+            
+            # mTLS configuration
+            - name: TLS_CERT_PATH
+              value: "/etc/certs/tls.crt"
+            - name: TLS_KEY_PATH
+              value: "/etc/certs/tls.key"
+            - name: CA_CERT_PATH
+              value: "/etc/certs/ca.crt"
+            
+            # Service discovery
+            - name: MCP_GATEWAY_URL
+              value: "http://mcp-gateway.a1-orchestrator.svc.cluster.local:8080"
+            - name: MCP_POLICY_PROXY_URL
+              value: "http://mcp-policy-proxy.a1-orchestrator.svc.cluster.local:8080"
+            - name: MCP_CONFIG_URL
+              value: "http://mcp-config.a1-orchestrator.svc.cluster.local:8080"
+            - name: MCP_TRACEHUB_URL
+              value: "http://mcp-tracehub.a1-orchestrator.svc.cluster.local:8080"
+          
+          volumeMounts:
+            - name: certs
+              mountPath: /etc/certs
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /app/cache
+          
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+          
+          # Probes
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
+      
+      volumes:
+        - name: certs
+          secret:
+            secretName: mcp-orchestrator-dev-secrets
+            items:
+              - key: tls_cert
+                path: tls.crt
+              - key: tls_key
+                path: tls.key
+              - key: ca_cert
+                path: ca.crt
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: cache
+          emptyDir:
+            sizeLimit: 2Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-orchestrator-api
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-orchestrator-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: a1-orchestrator
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+    - name: grpc
+      port: 9000
+      targetPort: grpc
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: mcp-orchestrator-api
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-orchestrator-api
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-orchestrator-api
+    app.kubernetes.io/component: api
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+automountServiceAccountToken: false
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mcp-orchestrator-api
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-orchestrator-api
+    app.kubernetes.io/component: api
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.middlewares: default-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+    - hosts:
+        - api.a1.local
+      secretName: mcp-orchestrator-api-tls
+  rules:
+    - host: api.a1.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-orchestrator-api
+                port:
+                  number: 8080

@@ -1,0 +1,349 @@
+# OPA Gatekeeper Constraint Templates and Constraints for K3s A1 Platform
+# Security and compliance policies for AI orchestrator services
+
+---
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequiredsecuritycontext
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+  annotations:
+    metadata.gatekeeper.sh/title: "Required Security Context"
+    metadata.gatekeeper.sh/version: "v1.0.0"
+    description: "Requires pods to have specific security context settings"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequiredSecurityContext
+      validation:
+        type: object
+        properties:
+          runAsNonRoot:
+            type: boolean
+          runAsUser:
+            type: object
+            properties:
+              rule:
+                type: string
+                enum: ["MustRunAs", "MustRunAsNonRoot", "RunAsAny"]
+              ranges:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    min:
+                      type: integer
+                    max:
+                      type: integer
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequiredsecuritycontext
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Pod"
+          not input.review.object.spec.securityContext.runAsNonRoot == true
+          msg := "Pod must run as non-root user"
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Pod"
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.allowPrivilegeEscalation == false
+          msg := sprintf("Container '%s' must set allowPrivilegeEscalation to false", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Pod"
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.readOnlyRootFilesystem == true
+          msg := sprintf("Container '%s' must set readOnlyRootFilesystem to true", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Pod"
+          container := input.review.object.spec.containers[_]
+          has_disallowed_caps(container)
+          msg := sprintf("Container '%s' must drop ALL capabilities", [container.name])
+        }
+
+        has_disallowed_caps(container) {
+          not "ALL" in container.securityContext.capabilities.drop
+        }
+
+        has_disallowed_caps(container) {
+          not container.securityContext.capabilities.drop
+        }
+
+---
+apiVersion: config.gatekeeper.sh/v1alpha1
+kind: K8sRequiredSecurityContext
+metadata:
+  name: must-have-security-context
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+spec:
+  match:
+    - apiGroups: ["apps"]
+      kinds: ["Deployment"]
+      namespaces: ["a1-orchestrator"]
+  parameters:
+    runAsNonRoot: true
+    runAsUser:
+      rule: "MustRunAsNonRoot"
+
+---
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequiredresources
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+  annotations:
+    metadata.gatekeeper.sh/title: "Required Resources"
+    metadata.gatekeeper.sh/version: "v1.0.0"
+    description: "Requires pods to have CPU and memory limits"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequiredResources
+      validation:
+        type: object
+        properties:
+          exemptNamespaces:
+            type: array
+            items:
+              type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequiredresources
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Pod"
+          not exempt_namespace(input.review.object.metadata.namespace)
+          container := input.review.object.spec.containers[_]
+          not has_memory_limit(container)
+          msg := sprintf("Container '%s' must have memory limits", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Pod"
+          not exempt_namespace(input.review.object.metadata.namespace)
+          container := input.review.object.spec.containers[_]
+          not has_cpu_limit(container)
+          msg := sprintf("Container '%s' must have CPU limits", [container.name])
+        }
+
+        has_memory_limit(container) {
+          container.resources.limits.memory
+        }
+
+        has_cpu_limit(container) {
+          container.resources.limits.cpu
+        }
+
+        exempt_namespace(ns) {
+          exempt := input.parameters.exemptNamespaces[_]
+          ns == exempt
+        }
+
+---
+apiVersion: config.gatekeeper.sh/v1alpha1
+kind: K8sRequiredResources
+metadata:
+  name: must-have-resource-limits
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+spec:
+  match:
+    - apiGroups: ["apps"]
+      kinds: ["Deployment"]
+  parameters:
+    exemptNamespaces:
+      - "kube-system"
+      - "kube-public"
+      - "gatekeeper-system"
+      - "argocd"
+      - "monitoring"
+      - "external-secrets"
+      - "keda"
+
+---
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequiredlabels
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+  annotations:
+    metadata.gatekeeper.sh/title: "Required Labels"
+    metadata.gatekeeper.sh/version: "v1.0.0"
+    description: "Requires specific labels on resources"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequiredLabels
+      validation:
+        type: object
+        properties:
+          labels:
+            type: array
+            items:
+              type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequiredlabels
+
+        violation[{"msg": msg}] {
+          required_labels := input.parameters.labels
+          required_label := required_labels[_]
+          not input.review.object.metadata.labels[required_label]
+          msg := sprintf("Missing required label '%s'", [required_label])
+        }
+
+---
+apiVersion: config.gatekeeper.sh/v1alpha1
+kind: K8sRequiredLabels
+metadata:
+  name: must-have-app-labels
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+spec:
+  match:
+    - apiGroups: ["apps"]
+      kinds: ["Deployment", "ReplicaSet"]
+      namespaces: ["a1-orchestrator"]
+    - apiGroups: [""]
+      kinds: ["Service", "Pod"]
+      namespaces: ["a1-orchestrator"]
+  parameters:
+    labels:
+      - "app.kubernetes.io/name"
+      - "app.kubernetes.io/part-of"
+      - "app.kubernetes.io/component"
+
+---
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8sdisallowedtags
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+  annotations:
+    metadata.gatekeeper.sh/title: "Disallowed Image Tags"
+    metadata.gatekeeper.sh/version: "v1.0.0"
+    description: "Disallows specific image tags like :latest"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sDisallowedTags
+      validation:
+        type: object
+        properties:
+          tags:
+            type: array
+            items:
+              type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sdisallowedtags
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Pod"
+          container := input.review.object.spec.containers[_]
+          has_disallowed_tag(container.image, input.parameters.tags)
+          msg := sprintf("Container '%s' uses disallowed image tag", [container.name])
+        }
+
+        has_disallowed_tag(image, disallowed_tags) {
+          tag := split(image, ":")[1]
+          tag in disallowed_tags
+        }
+
+        has_disallowed_tag(image, _) {
+          not contains(image, ":")
+        }
+
+---
+apiVersion: config.gatekeeper.sh/v1alpha1
+kind: K8sDisallowedTags
+metadata:
+  name: disallow-latest-tag
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+spec:
+  match:
+    - apiGroups: ["apps"]
+      kinds: ["Deployment"]
+      namespaces: ["a1-orchestrator"]
+  parameters:
+    tags:
+      - "latest"
+      - "main"
+      - "master"
+
+---
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8snetworkpolicyenforced
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+  annotations:
+    metadata.gatekeeper.sh/title: "Network Policy Enforced"
+    metadata.gatekeeper.sh/version: "v1.0.0"
+    description: "Ensures namespaces have network policies"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sNetworkPolicyEnforced
+      validation:
+        type: object
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8snetworkpolicyenforced
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Namespace"
+          namespace := input.review.object.metadata.name
+          not has_network_policy(namespace)
+          msg := sprintf("Namespace '%s' must have a NetworkPolicy", [namespace])
+        }
+
+        has_network_policy(namespace) {
+          # This would typically query for existing NetworkPolicies
+          # For simplicity, we'll assume they exist for certain namespaces
+          namespace in ["kube-system", "kube-public", "gatekeeper-system"]
+        }
+
+---
+apiVersion: config.gatekeeper.sh/v1alpha1
+kind: K8sNetworkPolicyEnforced
+metadata:
+  name: require-network-policies
+  labels:
+    app.kubernetes.io/name: gatekeeper-policies
+    app.kubernetes.io/part-of: k3s-a1-platform
+spec:
+  match:
+    - apiGroups: [""]
+      kinds: ["Namespace"]

@@ -1,0 +1,167 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mcp-tracehub
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-tracehub
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mcp-tracehub
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+      selectPolicy: Min
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: mcp-tracehub-keda
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-tracehub
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  scaleTargetRef:
+    name: mcp-tracehub
+  pollingInterval: 30
+  cooldownPeriod: 600
+  idleReplicaCount: 2
+  minReplicaCount: 2
+  maxReplicaCount: 12
+  fallback:
+    failureThreshold: 3
+    replicas: 4
+  advanced:
+    restoreToOriginalReplicaCount: true
+    horizontalPodAutoscalerConfig:
+      name: mcp-tracehub-keda-hpa
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 120
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 30
+        scaleDown:
+          stabilizationWindowSeconds: 600
+          policies:
+            - type: Percent
+              value: 50
+              periodSeconds: 60
+  triggers:
+    # Trace ingestion rate
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: traces_received_per_second
+        threshold: '200'
+        query: |
+          sum(rate(otelcol_receiver_accepted_spans{
+            namespace="a1-orchestrator",
+            service="mcp-tracehub"
+          }[2m]))
+    
+    # Trace processing latency
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: trace_processing_p95_latency_seconds
+        threshold: '1.5'
+        query: |
+          histogram_quantile(0.95,
+            sum(rate(otelcol_processor_batch_timeout_trigger_send_duration_seconds_bucket{
+              namespace="a1-orchestrator",
+              service="mcp-tracehub"
+            }[5m])) by (le)
+          )
+    
+    # Queue depth for trace processing
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: trace_queue_depth
+        threshold: '1000'
+        query: |
+          sum(otelcol_processor_batch_batch_send_queue_size{
+            namespace="a1-orchestrator",
+            service="mcp-tracehub"
+          })
+    
+    # Memory pressure from trace cache
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: trace_cache_memory_usage_ratio
+        threshold: '0.85'
+        query: |
+          (
+            sum(trace_cache_memory_bytes{
+              namespace="a1-orchestrator",
+              service="mcp-tracehub"
+            })
+            /
+            sum(container_spec_memory_limit_bytes{
+              namespace="a1-orchestrator",
+              pod=~"mcp-tracehub-.*"
+            })
+          )
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mcp-tracehub-data
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-tracehub
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: local-path

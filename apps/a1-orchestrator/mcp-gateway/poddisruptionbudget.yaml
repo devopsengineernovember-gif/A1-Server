@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mcp-gateway-pdb
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-gateway
+    component: gateway
+    environment: production
+    cluster: a1
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mcp-gateway

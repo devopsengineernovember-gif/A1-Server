@@ -1,0 +1,191 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-config
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-config
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: configuration
+    app.kubernetes.io/version: "1.0.0"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 9090
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+    - port: 8080
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    app.kubernetes.io/name: mcp-config
+    app.kubernetes.io/part-of: a1-orchestrator
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-config-config
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-config
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: configuration
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  config.yaml: |
+    server:
+      http_port: 8080
+      grpc_port: 9090
+      metrics_port: 8080
+      tls:
+        enabled: true
+        cert_file: /etc/certs/tls.crt
+        key_file: /etc/certs/tls.key
+        ca_file: /etc/ca/ca.crt
+        client_auth: true
+    
+    storage:
+      backend: "etcd"
+      etcd:
+        endpoints:
+          - "https://127.0.0.1:2379"
+        tls:
+          ca_file: /etc/etcd/ca.crt
+          cert_file: /etc/etcd/client.crt
+          key_file: /etc/etcd/client.key
+        timeout: "30s"
+        dial_timeout: "10s"
+        prefix: "/mcp/config/"
+    
+    vault:
+      address: "${VAULT_ADDR}"
+      token: "${VAULT_TOKEN}"
+      mount_path: "secret"
+      timeout: "30s"
+      retry_attempts: 3
+      retry_delay: "1s"
+    
+    orchestrator:
+      api_endpoint: "${ORCHESTRATOR_API_ENDPOINT}"
+      trace_endpoint: "${TRACE_ENDPOINT}"
+      timeout: "30s"
+      retry_attempts: 3
+      retry_delay: "1s"
+    
+    logging:
+      level: "${LOG_LEVEL}"
+      format: "json"
+      output: "stdout"
+      audit:
+        enabled: true
+        file: "/data/audit.log"
+        max_size: "100MB"
+        max_backups: 10
+        max_age: 30
+    
+    metrics:
+      enabled: true
+      path: "/metrics"
+      port: 8080
+    
+    health:
+      enabled: true
+      path: "/health"
+      ready_path: "/ready"
+    
+    cache:
+      enabled: true
+      ttl: "15m"
+      max_size: 10000
+      cleanup_interval: "5m"
+      persistence:
+        enabled: true
+        path: "/data/config-cache"
+    
+    rate_limiting:
+      enabled: true
+      requests_per_second: 200
+      burst: 500
+      per_client: true
+    
+    configuration:
+      hot_reload: true
+      reload_interval: "30s"
+      validation: true
+      versioning: true
+      backup:
+        enabled: true
+        interval: "1h"
+        retention: 72
+        path: "/data/config-backups"
+      
+      schemas:
+        - name: "agent-config"
+          version: "v1"
+          schema: |
+            {
+              "type": "object",
+              "properties": {
+                "name": {"type": "string"},
+                "version": {"type": "string"},
+                "capabilities": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": {"type": "string"},
+                    "memory": {"type": "string"}
+                  }
+                }
+              },
+              "required": ["name", "version"]
+            }
+        
+        - name: "platform-config"
+          version: "v1"
+          schema: |
+            {
+              "type": "object",
+              "properties": {
+                "logging": {
+                  "type": "object",
+                  "properties": {
+                    "level": {"type": "string", "enum": ["debug", "info", "warn", "error"]},
+                    "format": {"type": "string", "enum": ["json", "text"]}
+                  }
+                },
+                "metrics": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {"type": "boolean"},
+                    "interval": {"type": "string"}
+                  }
+                }
+              }
+            }
+      
+      watchers:
+        - name: "agent-configs"
+          path: "/mcp/config/agents/"
+          schema: "agent-config"
+          reload_on_change: true
+        
+        - name: "platform-configs"
+          path: "/mcp/config/platform/"
+          schema: "platform-config"
+          reload_on_change: true

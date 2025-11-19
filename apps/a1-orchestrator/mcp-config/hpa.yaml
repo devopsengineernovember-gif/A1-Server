@@ -1,0 +1,168 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mcp-config
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-config
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: configuration
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mcp-config
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+      selectPolicy: Min
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: mcp-config-keda
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-config
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: configuration
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  scaleTargetRef:
+    name: mcp-config
+  pollingInterval: 30
+  cooldownPeriod: 600
+  idleReplicaCount: 2
+  minReplicaCount: 2
+  maxReplicaCount: 8
+  fallback:
+    failureThreshold: 3
+    replicas: 3
+  advanced:
+    restoreToOriginalReplicaCount: true
+    horizontalPodAutoscalerConfig:
+      name: mcp-config-keda-hpa
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 120
+          policies:
+            - type: Percent
+              value: 50
+              periodSeconds: 30
+        scaleDown:
+          stabilizationWindowSeconds: 600
+          policies:
+            - type: Percent
+              value: 25
+              periodSeconds: 60
+  triggers:
+    # Configuration request rate
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: config_requests_per_second
+        threshold: '30'
+        query: |
+          sum(rate(http_requests_total{
+            namespace="a1-orchestrator",
+            service="mcp-config",
+            path=~"/config/.*"
+          }[2m]))
+    
+    # Configuration update latency
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: config_update_p95_latency_seconds
+        threshold: '2.0'
+        query: |
+          histogram_quantile(0.95,
+            sum(rate(config_update_duration_seconds_bucket{
+              namespace="a1-orchestrator",
+              service="mcp-config"
+            }[5m])) by (le)
+          )
+    
+    # Active configuration watchers
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: active_config_watchers
+        threshold: '50'
+        query: |
+          sum(active_config_watchers{
+            namespace="a1-orchestrator",
+            service="mcp-config"
+          })
+    
+    # Configuration cache miss rate
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: config_cache_miss_rate
+        threshold: '0.3'
+        query: |
+          (
+            sum(rate(config_cache_misses_total{
+              namespace="a1-orchestrator",
+              service="mcp-config"
+            }[5m]))
+            /
+            sum(rate(config_requests_total{
+              namespace="a1-orchestrator",
+              service="mcp-config"
+            }[5m]))
+          )
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mcp-config-data
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-config
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: configuration
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-path

@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcp-config-netpol
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-config
+    component: config
+    environment: production
+    cluster: a1
+spec:
+  podSelector:
+    matchLabels:
+      app: mcp-config
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: a1-orchestrator
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to: []  # Allow DNS resolution
+    ports:
+    - protocol: UDP
+      port: 53
+  - to: []  # Allow HTTPS egress for external config sources
+    ports:
+    - protocol: TCP
+      port: 443

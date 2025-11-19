@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: orchestrator
+
+resources:
+  - namespace.yaml
+  - default-network-policies.yaml
+  - app-a1-orchestrator.yaml
+  - mcp-orchestrator-api/
+  - mcp-gateway/
+  - mcp-policy-proxy/
+  - mcp-config/
+  - mcp-tracehub/
+
+commonLabels:
+  app.kubernetes.io/part-of: a1-orchestrator
+  app.kubernetes.io/managed-by: argocd
+  plane: control
+  host: A1
+  team: orchestrator
+
+images:
+  - name: ghcr.io/your-org/mcp-orchestrator-api
+    newTag: v1.0.0
+  - name: ghcr.io/your-org/mcp-gateway
+    newTag: v1.0.0
+  - name: ghcr.io/your-org/mcp-policy-proxy
+    newTag: v1.0.0
+  - name: ghcr.io/your-org/mcp-config
+    newTag: v1.0.0
+  - name: ghcr.io/your-org/mcp-tracehub
+    newTag: v1.0.0
+
+patches:
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: add
+        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
+        value: "2"
+  - target:
+      kind: Service
+    patch: |-
+      - op: add
+        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
+        value: "1"

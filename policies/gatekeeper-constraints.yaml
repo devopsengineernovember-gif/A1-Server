@@ -1,0 +1,346 @@
+# OPA Gatekeeper Constraints for A1 Platform
+# Enforces security policies and compliance requirements
+
+# Constraint Template: Disallow :latest tag
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8sdisallowlatestag
+  annotations:
+    description: "Disallow containers with :latest tag"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sDisallowLatestTag
+      validation:
+        openAPIV3Schema:
+          type: object
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sdisallowlatestag
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          satisfied := [good | repo = container.image; good = repo; not contains(repo, ":latest")]
+          not any(satisfied)
+          msg := sprintf("Container <%v> uses disallowed tag :latest", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          satisfied := [good | repo = container.image; good = repo; contains(repo, ":")]
+          not any(satisfied)
+          msg := sprintf("Container <%v> didn't specify image tag and is using latest tag", [container.name])
+        }
+---
+# Constraint Template: Require non-root user and read-only root filesystem
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequiresecuritycontext
+  annotations:
+    description: "Require non-root user and read-only root filesystem"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequireSecurityContext
+      validation:
+        openAPIV3Schema:
+          type: object
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequiresecuritycontext
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.runAsNonRoot == true
+          msg := sprintf("Container <%v> must set runAsNonRoot to true", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.readOnlyRootFilesystem == true
+          msg := sprintf("Container <%v> must set readOnlyRootFilesystem to true", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.capabilities.drop
+          not "ALL" in container.securityContext.capabilities.drop
+          msg := sprintf("Container <%v> must drop ALL capabilities", [container.name])
+        }
+---
+# Constraint Template: Require resource requests and limits
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequireresources
+  annotations:
+    description: "Require CPU and memory requests and limits"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequireResources
+      validation:
+        openAPIV3Schema:
+          type: object
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequireresources
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.resources.requests.cpu
+          msg := sprintf("Container <%v> must specify CPU requests", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.resources.requests.memory
+          msg := sprintf("Container <%v> must specify memory requests", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.resources.limits.cpu
+          msg := sprintf("Container <%v> must specify CPU limits", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.resources.limits.memory
+          msg := sprintf("Container <%v> must specify memory limits", [container.name])
+        }
+---
+# Constraint Template: Disallow privileged containers
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8sdisallowprivileged
+  annotations:
+    description: "Disallow privileged containers"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sDisallowPrivileged
+      validation:
+        openAPIV3Schema:
+          type: object
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sdisallowprivileged
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.privileged == true
+          msg := sprintf("Container <%v> is not allowed to run in privileged mode", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.spec.securityContext.privileged == true
+          msg := "Pod is not allowed to run in privileged mode"
+        }
+---
+# Constraint Template: Disallow hostNetwork and hostPath
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8sdisallowhost
+  annotations:
+    description: "Disallow hostNetwork and hostPath"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sDisallowHost
+      validation:
+        openAPIV3Schema:
+          type: object
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sdisallowhost
+
+        violation[{"msg": msg}] {
+          input.review.object.spec.hostNetwork == true
+          msg := "Pod is not allowed to use hostNetwork"
+        }
+
+        violation[{"msg": msg}] {
+          volume := input.review.object.spec.volumes[_]
+          volume.hostPath
+          msg := sprintf("Volume <%v> is not allowed to use hostPath", [volume.name])
+        }
+---
+# Constraint Template: Disallow NodePort services
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8sdisallownodeport
+  annotations:
+    description: "Disallow NodePort services"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sDisallowNodePort
+      validation:
+        openAPIV3Schema:
+          type: object
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sdisallownodeport
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Service"
+          input.review.object.spec.type == "NodePort"
+          msg := "NodePort services are not allowed"
+        }
+---
+# Constraint Template: Enforce Pod Security baseline labels
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequirepodsecuritylabels
+  annotations:
+    description: "Require Pod Security baseline labels on namespaces"
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequirePodSecurityLabels
+      validation:
+        openAPIV3Schema:
+          type: object
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequirepodsecuritylabels
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Namespace"
+          not input.review.object.metadata.labels["pod-security.kubernetes.io/enforce"]
+          msg := "Namespace must have pod-security.kubernetes.io/enforce label"
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Namespace"
+          not input.review.object.metadata.labels["pod-security.kubernetes.io/audit"]
+          msg := "Namespace must have pod-security.kubernetes.io/audit label"
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Namespace"
+          not input.review.object.metadata.labels["pod-security.kubernetes.io/warn"]
+          msg := "Namespace must have pod-security.kubernetes.io/warn label"
+        }
+---
+# Constraint: Disallow latest tag
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sDisallowLatestTag
+metadata:
+  name: disallow-latest-tag
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment", "DaemonSet", "StatefulSet"]
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces: ["kube-system", "gatekeeper-system"]
+  enforcementAction: deny
+---
+# Constraint: Require security context
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequireSecurityContext
+metadata:
+  name: require-security-context
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment", "DaemonSet", "StatefulSet"]
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces: ["kube-system", "gatekeeper-system"]
+  enforcementAction: deny
+---
+# Constraint: Require resources
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequireResources
+metadata:
+  name: require-resources
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment", "DaemonSet", "StatefulSet"]
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces: ["kube-system", "gatekeeper-system"]
+  enforcementAction: deny
+---
+# Constraint: Disallow privileged
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sDisallowPrivileged
+metadata:
+  name: disallow-privileged
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment", "DaemonSet", "StatefulSet"]
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces: ["kube-system", "gatekeeper-system"]
+  enforcementAction: deny
+---
+# Constraint: Disallow host access
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sDisallowHost
+metadata:
+  name: disallow-host-access
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment", "DaemonSet", "StatefulSet"]
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces: ["kube-system", "gatekeeper-system"]
+  enforcementAction: deny
+---
+# Constraint: Disallow NodePort
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sDisallowNodePort
+metadata:
+  name: disallow-nodeport
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Service"]
+    excludedNamespaces: ["kube-system", "gatekeeper-system"]
+  enforcementAction: deny
+---
+# Constraint: Require Pod Security labels
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequirePodSecurityLabels
+metadata:
+  name: require-pod-security-labels
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Namespace"]
+    excludedNamespaces: ["kube-system", "gatekeeper-system", "default", "kube-public", "kube-node-lease"]
+  enforcementAction: warn

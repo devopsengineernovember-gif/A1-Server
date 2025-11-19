@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcp-policy-proxy-netpol
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-policy-proxy
+    component: policy
+    environment: production
+    cluster: a1
+spec:
+  podSelector:
+    matchLabels:
+      app: mcp-policy-proxy
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: a1-orchestrator
+    - podSelector:
+        matchLabels:
+          app: mcp-gateway
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: a1-orchestrator
+    - podSelector:
+        matchLabels:
+          app: mcp-config
+  - to: []  # Allow DNS resolution
+    ports:
+    - protocol: UDP
+      port: 53
+  - to: []  # Allow HTTPS egress for OPA policy queries
+    ports:
+    - protocol: TCP
+      port: 443

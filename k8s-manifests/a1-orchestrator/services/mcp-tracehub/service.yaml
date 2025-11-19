@@ -1,0 +1,234 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-tracehub
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-tracehub
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/version: "1.0.0"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 9090
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+    - port: 4317
+      targetPort: otlp-grpc
+      protocol: TCP
+      name: otlp-grpc
+    - port: 4318
+      targetPort: otlp-http
+      protocol: TCP
+      name: otlp-http
+    - port: 14250
+      targetPort: jaeger-grpc
+      protocol: TCP
+      name: jaeger-grpc
+    - port: 14268
+      targetPort: jaeger-http
+      protocol: TCP
+      name: jaeger-http
+    - port: 8080
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    app.kubernetes.io/name: mcp-tracehub
+    app.kubernetes.io/part-of: a1-orchestrator
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-tracehub-config
+  namespace: a1-orchestrator
+  labels:
+    app.kubernetes.io/name: mcp-tracehub
+    app.kubernetes.io/part-of: a1-orchestrator
+    app.kubernetes.io/component: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  config.yaml: |
+    server:
+      http_port: 8080
+      grpc_port: 9090
+      metrics_port: 8080
+      tls:
+        enabled: true
+        cert_file: /etc/certs/tls.crt
+        key_file: /etc/certs/tls.key
+        ca_file: /etc/ca/ca.crt
+        client_auth: true
+    
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+            tls:
+              cert_file: /etc/certs/tls.crt
+              key_file: /etc/certs/tls.key
+              ca_file: /etc/ca/ca.crt
+              client_ca_file: /etc/ca/ca.crt
+          http:
+            endpoint: "0.0.0.0:4318"
+            tls:
+              cert_file: /etc/certs/tls.crt
+              key_file: /etc/certs/tls.key
+              ca_file: /etc/ca/ca.crt
+      
+      jaeger:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:14250"
+          thrift_http:
+            endpoint: "0.0.0.0:14268"
+    
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+        send_batch_max_size: 2048
+      
+      resource:
+        attributes:
+          - key: "service.namespace"
+            value: "a1-orchestrator"
+            action: "upsert"
+          - key: "service.cluster"
+            value: "k3s-a1"
+            action: "upsert"
+      
+      memory_limiter:
+        limit_mib: 1024
+        spike_limit_mib: 256
+      
+      tail_sampling:
+        decision_wait: 10s
+        num_traces: 100
+        expected_new_traces_per_sec: 10
+        policies:
+          - name: error_policy
+            type: status_code
+            status_code:
+              status_codes: [ERROR]
+          - name: slow_policy
+            type: latency
+            latency:
+              threshold_ms: 1000
+          - name: sampling_policy
+            type: probabilistic
+            probabilistic:
+              sampling_percentage: 5
+    
+    exporters:
+      jaeger:
+        endpoint: "http://jaeger-collector.observability.svc.cluster.local:14250"
+        tls:
+          insecure: false
+          cert_file: /etc/certs/tls.crt
+          key_file: /etc/certs/tls.key
+          ca_file: /etc/ca/ca.crt
+      
+      prometheus:
+        endpoint: "http://prometheus-operated.monitoring.svc.cluster.local:9090/api/v1/write"
+        namespace: "a1_orchestrator"
+        const_labels:
+          service: "mcp-tracehub"
+          namespace: "a1-orchestrator"
+      
+      loki:
+        endpoint: "http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push"
+        labels:
+          attributes:
+            service.name: "service_name"
+            service.namespace: "service_namespace"
+          resource:
+            service.name: "service_name"
+    
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp, jaeger]
+          processors: [memory_limiter, resource, batch, tail_sampling]
+          exporters: [jaeger, prometheus]
+        
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [prometheus]
+        
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [loki]
+      
+      extensions: [health_check, pprof, zpages]
+    
+    extensions:
+      health_check:
+        endpoint: "0.0.0.0:13133"
+      
+      pprof:
+        endpoint: "0.0.0.0:1777"
+      
+      zpages:
+        endpoint: "0.0.0.0:55679"
+    
+    orchestrator:
+      api_endpoint: "${ORCHESTRATOR_API_ENDPOINT}"
+      timeout: "30s"
+      retry_attempts: 3
+      retry_delay: "1s"
+    
+    logging:
+      level: "${LOG_LEVEL}"
+      format: "json"
+      output: "stdout"
+      sampling:
+        enabled: true
+        tick: "1s"
+        initial: 100
+        thereafter: 100
+    
+    metrics:
+      enabled: true
+      path: "/metrics"
+      port: 8080
+      telemetry:
+        level: "detailed"
+        address: "0.0.0.0:8888"
+    
+    health:
+      enabled: true
+      path: "/health"
+      ready_path: "/ready"
+    
+    cache:
+      enabled: true
+      max_size: 100000
+      ttl: "1h"
+      cleanup_interval: "10m"
+      persistence:
+        enabled: true
+        path: "/data/trace-cache"
+    
+    correlation:
+      enabled: true
+      span_events: true
+      span_links: true
+      service_graphs: true
+      retention: "24h"

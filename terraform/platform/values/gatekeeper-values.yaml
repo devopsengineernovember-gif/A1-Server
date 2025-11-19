@@ -1,0 +1,91 @@
+# Gatekeeper configuration for A1 cluster
+replicas: 1
+
+image:
+  repository: openpolicyagent/gatekeeper
+  crdRepository: openpolicyagent/gatekeeper-crds
+  release: v3.14.0
+
+nodeSelector:
+  node-role: control
+  host: A1
+
+tolerations:
+- key: dedicated
+  operator: Equal
+  value: control
+  effect: NoSchedule
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+audit:
+  replicas: 1
+  nodeSelector:
+    node-role: control
+    host: A1
+  tolerations:
+  - key: dedicated
+    operator: Equal
+    value: control
+    effect: NoSchedule
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+controllerManager:
+  nodeSelector:
+    node-role: control
+    host: A1
+  tolerations:
+  - key: dedicated
+    operator: Equal
+    value: control
+    effect: NoSchedule
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+webhook:
+  nodeSelector:
+    node-role: control
+    host: A1
+  tolerations:
+  - key: dedicated
+    operator: Equal
+    value: control
+    effect: NoSchedule
+
+podSecurityPolicy:
+  enabled: false
+
+policyManager:
+  enabled: true
+
+constraintViolationsLimit: 20
+
+disableValidatingAdmissionWebhook: false
+
+logLevel: INFO
+
+emitAdmissionEvents: true
+
+emitAuditEvents: true
+
+# Enable mutation (beta feature)
+enableMutation: true
+
+mutationAnnotations: true

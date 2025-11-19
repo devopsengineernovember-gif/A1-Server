@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcp-orchestrator-api-netpol
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-orchestrator-api
+    component: api
+    environment: production
+    cluster: a1
+spec:
+  podSelector:
+    matchLabels:
+      app: mcp-orchestrator-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: a1-orchestrator
+    - podSelector:
+        matchLabels:
+          app: mcp-gateway
+    ports:
+    - protocol: TCP
+      port: 8080
+  - from: []  # Allow ingress from anywhere for API access
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: a1-orchestrator
+    - podSelector:
+        matchLabels:
+          app: mcp-config
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: a1-orchestrator
+    - podSelector:
+        matchLabels:
+          app: mcp-tracehub
+  - to: []  # Allow DNS resolution
+    ports:
+    - protocol: UDP
+      port: 53
+  - to: []  # Allow HTTPS egress for external APIs
+    ports:
+    - protocol: TCP
+      port: 443

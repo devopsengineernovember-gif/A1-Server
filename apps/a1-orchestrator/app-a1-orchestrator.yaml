@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: a1-orchestrator
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: a1-orchestrator
+    app.kubernetes.io/component: orchestrator
+    app.kubernetes.io/part-of: applications
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/devopsengineernovember-gif/k3s-ai-platform.git
+    targetRevision: main
+    path: apps/a1-orchestrator
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: orchestrator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+    - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas
+  - group: autoscaling
+    kind: HorizontalPodAutoscaler
+    jsonPointers:
+    - /spec/targetCPUUtilizationPercentage
+    - /status
+  - group: admissionregistration.k8s.io
+    kind: MutatingAdmissionWebhook
+    jsonPointers:
+    - /webhooks/0/clientConfig/caBundle
+  - group: admissionregistration.k8s.io
+    kind: ValidatingAdmissionWebhook
+    jsonPointers:
+    - /webhooks/0/clientConfig/caBundle

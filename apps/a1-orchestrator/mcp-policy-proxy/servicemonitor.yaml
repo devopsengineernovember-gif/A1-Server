@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-policy-proxy-monitor
+  namespace: a1-orchestrator
+  labels:
+    app: mcp-policy-proxy
+    component: policy
+    environment: production
+    cluster: a1
+spec:
+  selector:
+    matchLabels:
+      app: mcp-policy-proxy
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+    honorLabels: true
+  - port: http
+    interval: 30s
+    path: /health
+    honorLabels: true

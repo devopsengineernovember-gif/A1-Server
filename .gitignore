@@ -1,0 +1,68 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.auto.tfvars
+terraform.tfvars
+
+# Kubernetes
+.kube/
+kubeconfig*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+.tmp/
+temp/
+/tmp/
+
+# Secrets
+*.pem
+*.key
+*.crt
+secrets.yaml
+secret.yaml
+
+# Backup files
+*.bak
+*.backup
+
+# Cache
+.cache/
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# ArgoCD
+argocd-*
+
+# Helm
+charts/
+Chart.lock
+
+# Build artifacts
+dist/
+build/
+target/
