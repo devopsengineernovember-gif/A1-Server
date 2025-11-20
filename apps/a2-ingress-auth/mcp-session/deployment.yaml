@@ -38,7 +38,7 @@ spec:
         fsGroup: 65534
       containers:
         - name: mcp-session
-          image: ghcr.io/modelcontextprotocol/session-service:latest
+          image: nginxinc/nginx-unprivileged:1.25-alpine
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

@@ -38,7 +38,7 @@ spec:
         fsGroup: 65534
       containers:
         - name: mcp-auth
-          image: ghcr.io/modelcontextprotocol/auth-service:latest
+          image: nginxinc/nginx-unprivileged:1.25-alpine
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

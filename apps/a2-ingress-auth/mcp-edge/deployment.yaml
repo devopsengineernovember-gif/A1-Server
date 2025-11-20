@@ -38,7 +38,7 @@ spec:
         fsGroup: 65534
       containers:
         - name: mcp-edge
-          image: ghcr.io/modelcontextprotocol/edge-service:latest
+          image: nginxinc/nginx-unprivileged:1.25-alpine
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
