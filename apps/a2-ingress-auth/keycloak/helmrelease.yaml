@@ -38,7 +38,7 @@ spec:
         persistence:
           enabled: true
           size: 8Gi
-          storageClass: "local-path"
+          storageClass: "longhorn"
     
     service:
       type: ClusterIP

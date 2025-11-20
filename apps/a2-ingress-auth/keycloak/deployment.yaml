@@ -56,7 +56,7 @@ spec:
             - name: KEYCLOAK_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: keycloak-secrets
+                  name: keycloak-admin-secret
                   key: admin-password
             - name: KC_HOSTNAME
               value: "auth.a2-edge.local"
@@ -71,12 +71,12 @@ spec:
             - name: KC_DB_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: keycloak-secrets
+                  name: keycloak-postgres-secret
                   key: db-username
             - name: KC_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: keycloak-secrets
+                  name: keycloak-postgres-secret
                   key: db-password
             - name: KC_METRICS_ENABLED
               value: "true"
@@ -166,35 +166,36 @@ spec:
   resources:
     requests:
       storage: 2Gi
-  storageClassName: local-path
----
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: keycloak-secrets
-  namespace: auth
-  labels:
-    app.kubernetes.io/name: keycloak
-    app.kubernetes.io/component: identity-provider
-    app.kubernetes.io/part-of: a2-stack
-spec:
-  refreshInterval: 15m
-  secretStoreRef:
-    name: vault-backend
-    kind: SecretStore
-  target:
-    name: keycloak-secrets
-    creationPolicy: Owner
-  data:
-    - secretKey: admin-password
-      remoteRef:
-        key: keycloak/admin
-        property: password
-    - secretKey: db-username
-      remoteRef:
-        key: keycloak/database
-        property: username
-    - secretKey: db-password
-      remoteRef:
-        key: keycloak/database
-        property: password
+  storageClassName: longhorn
+# External Secret temporarily disabled - using direct secrets
+# ---
+# apiVersion: external-secrets.io/v1beta1
+# kind: ExternalSecret
+# metadata:
+#   name: keycloak-secrets
+#   namespace: auth
+#   labels:
+#     app.kubernetes.io/name: keycloak
+#     app.kubernetes.io/component: identity-provider
+#     app.kubernetes.io/part-of: a2-stack
+# spec:
+#   refreshInterval: 15m
+#   secretStoreRef:
+#     name: vault-backend
+#     kind: SecretStore
+#   target:
+#     name: keycloak-secrets
+#     creationPolicy: Owner
+#   data:
+#     - secretKey: admin-password
+#       remoteRef:
+#         key: keycloak/admin
+#         property: password
+#     - secretKey: db-username
+#       remoteRef:
+#         key: keycloak/database
+#         property: username
+#     - secretKey: db-password
+#       remoteRef:
+#         key: keycloak/database
+#         property: password
