@@ -23,9 +23,10 @@ spec:
         prometheus.io/port: "9000"
     spec:
       serviceAccountName: keycloak
-      nodeSelector:
-        node-role: "orchestrator"
-        host: "A1"
+      # Temporarily removed nodeSelector for testing
+      # nodeSelector:
+      #   node-role: "orchestrator"
+      #   host: "A1"
       tolerations:
         - key: "node-role.kubernetes.io/control-plane"
           operator: "Exists"
