@@ -6,14 +6,15 @@ metadata:
 
 resources:
   - deployment.yaml
-  - helmrepository.yaml
-  - helmrelease.yaml
-  - externalsecret-admin.yaml
-  - externalsecret-oidc-clients.yaml
   - ingress.yaml
   - servicemonitor.yaml
   - networkpolicy.yaml
   - poddisruptionbudget.yaml
+  # Temporarily exclude until operators are installed
+  # - helmrepository.yaml
+  # - helmrelease.yaml
+  # - externalsecret-admin.yaml
+  # - externalsecret-oidc-clients.yaml
 
 commonLabels:
   app.kubernetes.io/component: identity-provider

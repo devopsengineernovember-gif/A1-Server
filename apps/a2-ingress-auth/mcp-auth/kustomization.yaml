@@ -6,11 +6,12 @@ metadata:
 
 resources:
   - deployment.yaml
-  - externalsecret.yaml
-  - keda.yaml
   - servicemonitor.yaml
   - networkpolicy.yaml
   - poddisruptionbudget.yaml
+  # Temporarily exclude until operators are installed
+  # - externalsecret.yaml
+  # - keda.yaml
 
 commonLabels:
   app.kubernetes.io/component: auth-service

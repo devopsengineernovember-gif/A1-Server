@@ -9,13 +9,14 @@ metadata:
 resources:
   - ns-ingress.yaml
   - ns-auth.yaml
-  - secretstore.yaml
   - traefik/
   - keycloak/
   - mcp-edge/
   - mcp-session/
   - mcp-auth/
   - mcp-identity-map/
+  # Temporarily exclude until operators are installed
+  # - secretstore.yaml
 
 commonLabels:
   app.kubernetes.io/part-of: a2-stack
