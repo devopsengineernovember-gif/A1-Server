@@ -23,10 +23,6 @@ spec:
         prometheus.io/port: "9090"
     spec:
       serviceAccountName: mcp-auth
-      # Temporarily removed nodeSelector for testing
-      # nodeSelector:
-      #   node-role: "orchestrator"
-      #   host: "A1"
       tolerations:
         - key: "node-role.kubernetes.io/control-plane"
           operator: "Exists"
