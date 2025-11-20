@@ -24,8 +24,8 @@ spec:
     spec:
       serviceAccountName: keycloak
       nodeSelector:
-        node-role: "ingress"
-        host: "A2"
+        node-role: "control-plane"
+        host: "A1"
       tolerations:
         - key: "dedicated"
           operator: "Equal"

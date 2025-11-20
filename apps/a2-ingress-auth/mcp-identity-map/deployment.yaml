@@ -24,8 +24,8 @@ spec:
     spec:
       serviceAccountName: mcp-identity-map
       nodeSelector:
-        node-role: "ingress"
-        host: "A2"
+        node-role: "control-plane"
+        host: "A1"
       tolerations:
         - key: "dedicated"
           operator: "Equal"
@@ -38,7 +38,7 @@ spec:
         fsGroup: 65534
       containers:
         - name: mcp-identity-map
-          image: nginx:1.24-alpine
+          image: ghcr.io/modelcontextprotocol/identity-service:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
