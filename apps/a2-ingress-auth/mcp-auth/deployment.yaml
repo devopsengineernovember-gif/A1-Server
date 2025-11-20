@@ -24,6 +24,10 @@ spec:
     spec:
       serviceAccountName: mcp-auth
       tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "control"
+          effect: "NoSchedule"
         - key: "node-role.kubernetes.io/control-plane"
           operator: "Exists"
           effect: "NoSchedule"
