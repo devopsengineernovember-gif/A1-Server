@@ -6,8 +6,6 @@ metadata:
   annotations:
     config.kubernetes.io/local-config: "true"
 
-namespace: ingress
-
 resources:
   - ns-ingress.yaml
   - ns-auth.yaml
