@@ -9,6 +9,7 @@ metadata:
 resources:
   - ns-ingress.yaml
   - ns-auth.yaml
+  - secretstore.yaml
   - traefik/
   - keycloak/
   - mcp-edge/
@@ -29,7 +30,7 @@ patches:
         path: /spec/template/spec/nodeSelector
         value:
           node-role: "ingress"
-          host: "A2"
+          host: "A1"
     target:
       kind: Deployment
       labelSelector: app.kubernetes.io/part-of=a2-stack
@@ -39,7 +40,7 @@ patches:
         value:
           - key: "dedicated"
             operator: "Equal"
-            value: "edge"
+            value: "control"
             effect: "NoSchedule"
     target:
       kind: Deployment

@@ -3,6 +3,9 @@ kind: Kustomization
 
 resources:
   - deployment.yaml
+  - helmrepository.yaml
+  - helmrelease.yaml
+  - middlewares.yaml
   - servicemonitor.yaml
   - networkpolicy.yaml
   - poddisruptionbudget.yaml

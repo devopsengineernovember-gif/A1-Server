@@ -6,6 +6,8 @@ metadata:
 
 resources:
   - deployment.yaml
+  - externalsecret.yaml
+  - keda.yaml
   - servicemonitor.yaml
   - networkpolicy.yaml
   - poddisruptionbudget.yaml

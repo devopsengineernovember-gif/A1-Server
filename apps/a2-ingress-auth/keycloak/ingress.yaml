@@ -1,0 +1,55 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: keycloak
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/component: identity-provider
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`auth.a1-server.local`) && PathPrefix(`/auth/`)
+      middlewares:
+        - name: rate-limit
+          namespace: ingress
+        - name: secure-headers
+          namespace: ingress
+      services:
+        - kind: Service
+          name: keycloak
+          port: 8080
+  tls:
+    certResolver: letsencrypt
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: keycloak-admin
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/component: identity-provider
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`auth.a1-server.local`) && PathPrefix(`/auth/admin/`)
+      middlewares:
+        - name: rate-limit
+          namespace: ingress
+        - name: forward-auth
+          namespace: ingress
+        - name: secure-headers
+          namespace: ingress
+      services:
+        - kind: Service
+          name: keycloak
+          port: 8080
+  tls:
+    certResolver: letsencrypt

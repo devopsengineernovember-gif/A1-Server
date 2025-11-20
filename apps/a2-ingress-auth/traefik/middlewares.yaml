@@ -1,0 +1,61 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+  namespace: ingress
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/component: middleware
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  rateLimit:
+    burst: 100
+    average: 50
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: forward-auth
+  namespace: ingress
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/component: middleware
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  forwardAuth:
+    address: http://mcp-auth.auth.svc.cluster.local:8080/verify
+    trustForwardHeader: true
+    authResponseHeaders:
+      - X-Auth-User
+      - X-Auth-Groups
+      - X-Auth-Email
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: secure-headers
+  namespace: ingress
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/component: middleware
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  headers:
+    accessControlAllowMethods:
+      - GET
+      - OPTIONS
+      - PUT
+      - POST
+      - DELETE
+      - PATCH
+    accessControlMaxAge: 100
+    hostsProxyHeaders:
+      - X-Forwarded-Host
+    referrerPolicy: "same-origin"
+    customFrameOptionsValue: "SAMEORIGIN"
+    contentTypeNosniff: true
+    browserXssFilter: true
+    forceSTSHeader: true
+    stsIncludeSubdomains: true
+    stsSeconds: 31536000
+    stsPreload: true

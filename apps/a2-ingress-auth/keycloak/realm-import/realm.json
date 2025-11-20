@@ -1,0 +1,151 @@
+{
+  "realm": "a1-platform",
+  "enabled": true,
+  "displayName": "A1 AI Platform",
+  "displayNameHtml": "<div class=\"kc-logo-text\"><span>A1 AI Platform</span></div>",
+  "loginTheme": "keycloak",
+  "adminTheme": "keycloak",
+  "accountTheme": "keycloak",
+  "emailTheme": "keycloak",
+  "internationalizationEnabled": false,
+  "supportedLocales": ["en"],
+  "defaultLocale": "en",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 30,
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Platform Administrator"
+      },
+      {
+        "name": "user",
+        "description": "Platform User"
+      },
+      {
+        "name": "viewer",
+        "description": "Read-only Access"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "mcp-auth",
+      "name": "MCP Authentication Service",
+      "description": "Authentication service for MCP platform",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${MCP_AUTH_CLIENT_SECRET}",
+      "redirectUris": [
+        "https://auth.a1-server.local/callback",
+        "https://a1-server.local/auth/callback"
+      ],
+      "webOrigins": [
+        "https://a1-server.local",
+        "https://auth.a1-server.local"
+      ],
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "attributes": {
+        "access.token.lifespan": "300",
+        "refresh.token.max.reuse": "0"
+      }
+    },
+    {
+      "clientId": "traefik",
+      "name": "Traefik Forward Auth",
+      "description": "Traefik forward authentication",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${TRAEFIK_CLIENT_SECRET}",
+      "redirectUris": [
+        "https://a1-server.local/*",
+        "https://auth.a1-server.local/*"
+      ],
+      "webOrigins": [
+        "https://a1-server.local",
+        "https://auth.a1-server.local"
+      ],
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "grafana",
+      "name": "Grafana Dashboard",
+      "description": "Grafana monitoring dashboard",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${GRAFANA_CLIENT_SECRET}",
+      "redirectUris": [
+        "https://grafana.a1-server.local/login/generic_oauth"
+      ],
+      "webOrigins": [
+        "https://grafana.a1-server.local"
+      ],
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "mappers": [
+          {
+            "name": "groups",
+            "protocol": "openid-connect",
+            "protocolMapper": "oidc-group-membership-mapper",
+            "config": {
+              "claim.name": "groups",
+              "jsonType.label": "String"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "firstName": "Platform",
+      "lastName": "Administrator",
+      "email": "admin@a1-server.local",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${ADMIN_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["admin", "user"],
+      "attributes": {
+        "department": ["IT"],
+        "organization": ["A1 Platform"]
+      }
+    }
+  ]
+}

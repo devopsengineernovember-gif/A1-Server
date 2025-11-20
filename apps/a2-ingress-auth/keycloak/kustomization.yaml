@@ -6,6 +6,11 @@ metadata:
 
 resources:
   - deployment.yaml
+  - helmrepository.yaml
+  - helmrelease.yaml
+  - externalsecret-admin.yaml
+  - externalsecret-oidc-clients.yaml
+  - ingress.yaml
   - servicemonitor.yaml
   - networkpolicy.yaml
   - poddisruptionbudget.yaml
@@ -22,3 +27,8 @@ images:
   - name: quay.io/keycloak/keycloak
     newName: quay.io/keycloak/keycloak
     newTag: "23.0.1"
+
+configMapGenerator:
+  - name: keycloak-realm-config
+    files:
+      - realm-import/realm.json
