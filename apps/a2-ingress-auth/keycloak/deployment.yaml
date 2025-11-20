@@ -57,7 +57,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: keycloak-admin-secret
-                  key: admin-password
+                  key: password
             - name: KC_HOSTNAME
               value: "auth.a2-edge.local"
             - name: KC_HTTP_ENABLED
@@ -65,19 +65,19 @@ spec:
             - name: KC_PROXY
               value: "edge"
             - name: KC_DB
-              value: "postgres"
-            - name: KC_DB_URL
-              value: "jdbc:postgresql://postgres.auth.svc.cluster.local:5432/keycloak"
-            - name: KC_DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-postgres-secret
-                  key: db-username
-            - name: KC_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-postgres-secret
-                  key: db-password
+              value: "h2-file"
+            # Using H2 embedded database
+            # - name: KC_DB_URL
+            #   value: "jdbc:postgresql://postgres.auth.svc.cluster.local:5432/keycloak"
+            # Using H2 embedded database
+            # - name: KC_DB_USERNAME
+            #   value: "keycloak"
+            # Using H2 embedded database
+            # - name: KC_DB_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: keycloak-postgres-secret
+            #       key: postgres-password
             - name: KC_METRICS_ENABLED
               value: "true"
             - name: KC_HEALTH_ENABLED
