@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mcp-session
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: mcp-session
+    app.kubernetes.io/component: session-manager
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-session

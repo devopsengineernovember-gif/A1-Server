@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-identity-map
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: mcp-identity-map
+    app.kubernetes.io/component: identity-mapper
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-identity-map
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics

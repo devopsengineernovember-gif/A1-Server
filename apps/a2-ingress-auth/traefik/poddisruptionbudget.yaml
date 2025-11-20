@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: traefik
+  namespace: ingress
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/component: ingress-controller
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik

@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mcp-edge
+  namespace: ingress
+  labels:
+    app.kubernetes.io/name: mcp-edge
+    app.kubernetes.io/component: edge-gateway
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-edge

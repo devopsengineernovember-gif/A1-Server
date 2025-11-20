@@ -1,0 +1,48 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: a2-ingress-auth
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+namespace: ingress
+
+resources:
+  - ns-ingress.yaml
+  - ns-auth.yaml
+  - traefik/
+  - keycloak/
+  - mcp-edge/
+  - mcp-session/
+  - mcp-auth/
+  - mcp-identity-map/
+
+commonLabels:
+  app.kubernetes.io/part-of: a2-stack
+  app.kubernetes.io/managed-by: argocd
+
+commonAnnotations:
+  argocd.argoproj.io/sync-wave: "1"
+  
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/nodeSelector
+        value:
+          node-role: "ingress"
+          host: "A2"
+    target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/part-of=a2-stack
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/tolerations
+        value:
+          - key: "dedicated"
+            operator: "Equal"
+            value: "edge"
+            effect: "NoSchedule"
+    target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/part-of=a2-stack

@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-auth
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: mcp-auth
+    app.kubernetes.io/component: auth-service
+    app.kubernetes.io/part-of: a2-stack
+    app.kubernetes.io/version: v1.0.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-auth
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcp-auth
+        app.kubernetes.io/component: auth-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      serviceAccountName: mcp-auth
+      nodeSelector:
+        node-role: "ingress"
+        host: "A2"
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "edge"
+          effect: "NoSchedule"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+      containers:
+        - name: mcp-auth
+          image: nginx:1.24-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9090
+          env:
+            - name: PORT
+              value: "8080"
+            - name: METRICS_PORT
+              value: "9090"
+            - name: KEYCLOAK_URL
+              value: "http://keycloak.auth.svc.cluster.local:8080"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-auth-secrets
+                  key: jwt-secret
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-auth
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: mcp-auth
+    app.kubernetes.io/component: auth-service
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mcp-auth
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-auth
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: mcp-auth
+    app.kubernetes.io/component: auth-service
+    app.kubernetes.io/part-of: a2-stack

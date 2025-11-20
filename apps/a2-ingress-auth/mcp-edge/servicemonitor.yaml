@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-edge
+  namespace: ingress
+  labels:
+    app.kubernetes.io/name: mcp-edge
+    app.kubernetes.io/component: edge-gateway
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-edge
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics

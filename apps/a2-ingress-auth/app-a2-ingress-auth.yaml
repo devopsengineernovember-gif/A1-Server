@@ -1,0 +1,56 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: a2-ingress-auth
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: a2-ingress-auth
+    app.kubernetes.io/component: ingress-auth
+    app.kubernetes.io/part-of: a2-stack
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/devopsengineernovember-gif/A1-Server.git
+    targetRevision: main
+    path: apps/a2-ingress-auth
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+    - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas
+  - group: autoscaling
+    kind: HorizontalPodAutoscaler
+    jsonPointers:
+    - /spec/targetCPUUtilizationPercentage
+    - /status
+  - group: networking.k8s.io
+    kind: Ingress
+    jsonPointers:
+    - /status/loadBalancer
+  - group: ""
+    kind: Secret
+    jsonPointers:
+    - /data
+  - group: external-secrets.io
+    kind: ExternalSecret
+    jsonPointers:
+    - /status

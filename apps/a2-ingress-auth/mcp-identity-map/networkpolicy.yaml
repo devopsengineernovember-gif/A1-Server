@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcp-identity-map
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: mcp-identity-map
+    app.kubernetes.io/component: identity-mapper
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-identity-map
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: auth
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9000
+  egress:
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 636  # LDAPS
+        - protocol: TCP
+          port: 389  # LDAP
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53

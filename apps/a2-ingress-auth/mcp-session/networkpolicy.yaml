@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcp-session
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: mcp-session
+    app.kubernetes.io/component: session-manager
+    app.kubernetes.io/part-of: a2-stack
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-session
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: auth
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9000
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: auth
+      ports:
+        - protocol: TCP
+          port: 6379  # Redis
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
