@@ -58,14 +58,20 @@ spec:
                 secretKeyRef:
                   name: keycloak-admin-secret
                   key: password
-            - name: KC_HOSTNAME
-              value: "auth.a2-edge.local"
+            # Hostname disabled for development
+            # - name: KC_HOSTNAME
+            #   value: "auth.a2-edge.local"
             - name: KC_HTTP_ENABLED
               value: "true"
-            - name: KC_PROXY
-              value: "edge"
+            # Proxy settings disabled for simple setup
+            # - name: KC_PROXY
+            #   value: "edge"
             - name: KC_DB
               value: "h2-file"
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "false"
             # Using H2 embedded database
             # - name: KC_DB_URL
             #   value: "jdbc:postgresql://postgres.auth.svc.cluster.local:5432/keycloak"
@@ -113,8 +119,7 @@ spec:
             timeoutSeconds: 5
       volumes:
         - name: keycloak-data
-          persistentVolumeClaim:
-            claimName: keycloak-data
+          emptyDir: {}
         - name: tmp
           emptyDir: {}
 ---

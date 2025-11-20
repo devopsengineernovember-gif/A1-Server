@@ -44,6 +44,10 @@ spec:
               value: "true"
             - name: KC_DB
               value: "h2-file"
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "false"
           args:
             - start
             - --optimized
@@ -64,7 +68,6 @@ spec:
               memory: 1Gi
       volumes:
         - name: keycloak-data
-          persistentVolumeClaim:
-            claimName: keycloak-data
+          emptyDir: {}
         - name: tmp
           emptyDir: {}
