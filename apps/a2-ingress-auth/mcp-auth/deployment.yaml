@@ -24,12 +24,11 @@ spec:
     spec:
       serviceAccountName: mcp-auth
       nodeSelector:
-        node-role: "control-plane"
+        node-role: "orchestrator"
         host: "A1"
       tolerations:
-        - key: "dedicated"
-          operator: "Equal"
-          value: "edge"
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
           effect: "NoSchedule"
       securityContext:
         runAsNonRoot: true
